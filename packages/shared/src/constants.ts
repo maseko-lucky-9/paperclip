@@ -46,13 +46,6 @@ export const AGENT_ROLES = [
   "devops",
   "researcher",
   "general",
-  // Prudentia Digital — business operations roles
-  "sales",
-  "social_media",
-  "bid_manager",
-  "onboarding",
-  "comms",
-  "finance",
 ] as const;
 export type AgentRole = (typeof AGENT_ROLES)[number];
 
@@ -68,13 +61,6 @@ export const AGENT_ROLE_LABELS: Record<AgentRole, string> = {
   devops: "DevOps",
   researcher: "Researcher",
   general: "General",
-  // Prudentia Digital — business operations roles
-  sales: "Sales",
-  social_media: "Social Media",
-  bid_manager: "Bid Manager",
-  onboarding: "Onboarding",
-  comms: "Communications",
-  finance: "Finance",
 };
 
 export const AGENT_ICON_NAMES = [

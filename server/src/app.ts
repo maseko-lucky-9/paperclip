@@ -1,7 +1,4 @@
 import express, { Router, type Request as ExpressRequest } from "express";
-import helmet from "helmet";
-import cors from "cors";
-import rateLimit from "express-rate-limit";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -78,24 +75,6 @@ export async function createApp(
   },
 ) {
   const app = express();
-
-  // Security middleware
-  app.use(helmet({
-    contentSecurityPolicy: opts.uiMode === "vite-dev" ? false : undefined,
-  }));
-  app.use(cors({
-    origin: opts.deploymentExposure === "private"
-      ? (origin, callback) => callback(null, true) // LAN-only: trust all origins
-      : opts.allowedHostnames.flatMap((h) => [`https://${h}`, `http://${h}`]),
-    credentials: true,
-  }));
-  // Rate limit auth endpoints to prevent brute-force
-  app.use("/api/auth", rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per window
-    standardHeaders: true,
-    legacyHeaders: false,
-  }));
 
   app.use(express.json({
     verify: (req, _res, buf) => {

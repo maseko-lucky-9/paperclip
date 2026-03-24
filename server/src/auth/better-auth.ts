@@ -67,14 +67,7 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
 
 export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?: string[]): BetterAuthInstance {
   const baseUrl = config.authBaseUrlMode === "explicit" ? config.authPublicBaseUrl : undefined;
-  const envSecret = process.env.BETTER_AUTH_SECRET ?? process.env.PAPERCLIP_AGENT_JWT_SECRET;
-  if (!envSecret && config.deploymentMode === "authenticated") {
-    throw new Error(
-      "BETTER_AUTH_SECRET or PAPERCLIP_AGENT_JWT_SECRET must be set in authenticated deployment mode. " +
-      "Generate a strong random secret (e.g. openssl rand -base64 32) and set it in your environment.",
-    );
-  }
-  const secret = envSecret ?? "paperclip-dev-secret";
+  const secret = process.env.BETTER_AUTH_SECRET ?? process.env.PAPERCLIP_AGENT_JWT_SECRET ?? "paperclip-dev-secret";
   const effectiveTrustedOrigins = trustedOrigins ?? deriveAuthTrustedOrigins(config);
 
   const publicUrl = process.env.PAPERCLIP_PUBLIC_URL ?? baseUrl;

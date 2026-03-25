@@ -19,6 +19,8 @@ import {
   ensurePathInEnv,
   renderTemplate,
   runChildProcess,
+  listPaperclipSkillEntries,
+  filterSkillsByTags,
 } from "@paperclipai/adapter-utils/server-utils";
 import {
   parseClaudeStreamJson,
@@ -34,33 +36,24 @@ const PAPERCLIP_SKILLS_CANDIDATES = [
   path.resolve(__moduleDir, "../../../../../skills"), // dev: src/server/ -> repo root/skills/
 ];
 
-async function resolvePaperclipSkillsDir(): Promise<string | null> {
-  for (const candidate of PAPERCLIP_SKILLS_CANDIDATES) {
-    const isDir = await fs.stat(candidate).then((s) => s.isDirectory()).catch(() => false);
-    if (isDir) return candidate;
-  }
-  return null;
-}
-
 /**
  * Create a tmpdir with `.claude/skills/` containing symlinks to skills from
  * the repo's `skills/` directory, so `--add-dir` makes Claude Code discover
  * them as proper registered skills.
+ *
+ * When `skillTags` is non-empty, only skills whose frontmatter `tags` intersect
+ * with `skillTags` are included (plus any untagged skills).
  */
-async function buildSkillsDir(): Promise<string> {
+async function buildSkillsDir(skillTags: string[]): Promise<string> {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-skills-"));
   const target = path.join(tmp, ".claude", "skills");
   await fs.mkdir(target, { recursive: true });
-  const skillsDir = await resolvePaperclipSkillsDir();
-  if (!skillsDir) return tmp;
-  const entries = await fs.readdir(skillsDir, { withFileTypes: true });
+
+  const allEntries = await listPaperclipSkillEntries(__moduleDir, PAPERCLIP_SKILLS_CANDIDATES);
+  const entries = await filterSkillsByTags(allEntries, skillTags);
+
   for (const entry of entries) {
-    if (entry.isDirectory()) {
-      await fs.symlink(
-        path.join(skillsDir, entry.name),
-        path.join(target, entry.name),
-      );
-    }
+    await fs.symlink(entry.source, path.join(target, entry.name));
   }
   return tmp;
 }
@@ -346,7 +339,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     ),
   );
   const billingType = resolveClaudeBillingType(effectiveEnv);
-  const skillsDir = await buildSkillsDir();
+  const skillTags = asStringArray(config.skillTags);
+  const skillsDir = await buildSkillsDir(skillTags);
 
   // When instructionsFilePath is configured, create a combined temp file that
   // includes both the file content and the path directive, so we only need

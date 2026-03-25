@@ -402,6 +402,73 @@ export async function removeMaintainerOnlySkillSymlinks(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Skill frontmatter parsing & tag-based filtering
+// ---------------------------------------------------------------------------
+
+export interface SkillFrontmatter {
+  name?: string;
+  tags?: string[];
+}
+
+/**
+ * Parse YAML frontmatter from a skill's SKILL.md file.
+ * Regex-based — no external YAML library required.
+ */
+export async function parseSkillFrontmatter(skillDir: string): Promise<SkillFrontmatter> {
+  const content = await fs.readFile(path.join(skillDir, "SKILL.md"), "utf8").catch(() => "");
+  const fenceMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fenceMatch) return {};
+
+  const yaml = fenceMatch[1];
+
+  const nameMatch = yaml.match(/^name:\s*(.+)$/m);
+  const name = nameMatch?.[1]?.trim().replace(/^['"]|['"]$/g, "");
+
+  // tags: [a, b, c]  OR  tags:\n  - a\n  - b
+  const tagsInlineMatch = yaml.match(/^tags:\s*\[([^\]]*)\]/m);
+  const tagsListMatch = yaml.match(/^tags:\s*\r?\n((?:\s+-\s+.+(?:\r?\n|$))*)/m);
+  let tags: string[] | undefined;
+
+  if (tagsInlineMatch) {
+    tags = tagsInlineMatch[1]
+      .split(",")
+      .map((t) => t.trim().replace(/^['"]|['"]$/g, ""))
+      .filter(Boolean);
+  } else if (tagsListMatch) {
+    tags =
+      tagsListMatch[1]
+        .match(/-\s+(.+)/g)
+        ?.map((m) => m.replace(/^-\s+/, "").trim().replace(/^['"]|['"]$/g, "")) ?? [];
+  }
+
+  return { name, tags };
+}
+
+/**
+ * Filter skill entries by tag intersection.
+ *
+ * - If `allowTags` is empty, all entries pass (backward compatible).
+ * - Skills with no `tags` in frontmatter always pass (safe default).
+ * - Otherwise, a skill passes when it has at least one tag in `allowTags`.
+ */
+export async function filterSkillsByTags(
+  entries: PaperclipSkillEntry[],
+  allowTags: string[],
+): Promise<PaperclipSkillEntry[]> {
+  if (allowTags.length === 0) return entries;
+
+  const results: PaperclipSkillEntry[] = [];
+  for (const entry of entries) {
+    const fm = await parseSkillFrontmatter(entry.source);
+    const skillTags = fm.tags ?? [];
+    if (skillTags.length === 0 || skillTags.some((t) => allowTags.includes(t))) {
+      results.push(entry);
+    }
+  }
+  return results;
+}
+
 export async function ensureCommandResolvable(command: string, cwd: string, env: NodeJS.ProcessEnv) {
   const resolved = await resolveCommandPath(command, cwd, env);
   if (resolved) return;

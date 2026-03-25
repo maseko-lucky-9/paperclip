@@ -15,6 +15,7 @@ import {
   ensurePaperclipSkillSymlink,
   ensurePathInEnv,
   listPaperclipSkillEntries,
+  filterSkillsByTags,
   removeMaintainerOnlySkillSymlinks,
   renderTemplate,
   joinPromptSections,
@@ -224,9 +225,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const preparedWorktreeCodexHome =
     configuredCodexHome ? null : await prepareWorktreeCodexHome(process.env, onLog);
   const effectiveCodexHome = configuredCodexHome ?? preparedWorktreeCodexHome;
+  const skillTags = asStringArray(config.skillTags);
+  const allSkillEntries = await listPaperclipSkillEntries(__moduleDir);
+  const filteredSkillEntries = await filterSkillsByTags(allSkillEntries, skillTags);
   await ensureCodexSkillsInjected(
     onLog,
-    effectiveCodexHome ? { skillsHome: path.join(effectiveCodexHome, "skills") } : {},
+    {
+      skillsEntries: filteredSkillEntries,
+      ...(effectiveCodexHome ? { skillsHome: path.join(effectiveCodexHome, "skills") } : {}),
+    },
   );
   const hasExplicitApiKey =
     typeof envConfig.PAPERCLIP_API_KEY === "string" && envConfig.PAPERCLIP_API_KEY.trim().length > 0;

@@ -6,6 +6,7 @@ description: >
   assignments, update task status, delegate work, post comments, or call any
   Paperclip API endpoint. Do NOT use for the actual domain work itself (writing
   code, research, etc.) — only for Paperclip coordination.
+tags: [core]
 ---
 
 # Paperclip Skill

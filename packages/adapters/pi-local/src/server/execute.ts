@@ -15,6 +15,7 @@ import {
   ensureCommandResolvable,
   ensurePaperclipSkillSymlink,
   ensurePathInEnv,
+  filterSkillsByTags,
   listPaperclipSkillEntries,
   removeMaintainerOnlySkillSymlinks,
   renderTemplate,
@@ -54,8 +55,10 @@ function resolvePiBiller(env: Record<string, string>, provider: string | null): 
   return inferOpenAiCompatibleBiller(env, null) ?? provider ?? "unknown";
 }
 
-async function ensurePiSkillsInjected(onLog: AdapterExecutionContext["onLog"]) {
-  const skillsEntries = await listPaperclipSkillEntries(__moduleDir);
+async function ensurePiSkillsInjected(
+  onLog: AdapterExecutionContext["onLog"],
+  skillsEntries: Awaited<ReturnType<typeof listPaperclipSkillEntries>>,
+) {
   if (skillsEntries.length === 0) return;
 
   const piSkillsHome = path.join(os.homedir(), ".pi", "agent", "skills");
@@ -132,12 +135,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
   const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
-  
+
   // Ensure sessions directory exists
   await ensureSessionsDir();
-  
+
   // Inject skills
-  await ensurePiSkillsInjected(onLog);
+  const skillTags = asStringArray(config.skillTags);
+  const allSkillEntries = await listPaperclipSkillEntries(__moduleDir);
+  const filteredSkillEntries = await filterSkillsByTags(allSkillEntries, skillTags);
+  await ensurePiSkillsInjected(onLog, filteredSkillEntries);
 
   // Build environment
   const envConfig = parseObject(config.env);

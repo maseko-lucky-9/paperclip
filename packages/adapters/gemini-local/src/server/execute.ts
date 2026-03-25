@@ -15,6 +15,7 @@ import {
   ensurePaperclipSkillSymlink,
   joinPromptSections,
   ensurePathInEnv,
+  filterSkillsByTags,
   listPaperclipSkillEntries,
   removeMaintainerOnlySkillSymlinks,
   parseObject,
@@ -84,8 +85,8 @@ function geminiSkillsHome(): string {
  */
 async function ensureGeminiSkillsInjected(
   onLog: AdapterExecutionContext["onLog"],
+  skillsEntries: Awaited<ReturnType<typeof listPaperclipSkillEntries>>,
 ): Promise<void> {
-  const skillsEntries = await listPaperclipSkillEntries(__moduleDir);
   if (skillsEntries.length === 0) return;
 
   const skillsHome = geminiSkillsHome();
@@ -156,7 +157,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
   const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
-  await ensureGeminiSkillsInjected(onLog);
+  const skillTags = asStringArray(config.skillTags);
+  const allSkillEntries = await listPaperclipSkillEntries(__moduleDir);
+  const filteredSkillEntries = await filterSkillsByTags(allSkillEntries, skillTags);
+  await ensureGeminiSkillsInjected(onLog, filteredSkillEntries);
 
   const envConfig = parseObject(config.env);
   const hasExplicitApiKey =

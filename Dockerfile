@@ -1,4 +1,4 @@
-FROM node:lts-trixie-slim AS base
+FROM node:lts-trixie-slim@sha256:c319bb4fac67c01ced508b67193a0397e02d37555d8f9b72958649efd302b7f8 AS base
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl git \
   && rm -rf /var/lib/apt/lists/*
@@ -43,7 +43,7 @@ RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" &
 FROM base AS production
 WORKDIR /app
 COPY --chown=node:node --from=build /app /app
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai \
+RUN npm install --global --omit=dev @anthropic-ai/claude-code@2.1.84 @openai/codex@0.116.0 opencode-ai@1.3.2 \
   && mkdir -p /paperclip \
   && chown node:node /paperclip
 

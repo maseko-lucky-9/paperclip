@@ -769,6 +769,21 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 />
               </Field>
 
+              <Field
+                label="Skill tags (comma-separated)"
+                hint="Filter which skills are available to this agent. Leave empty to allow all skills. Example: core, marketing"
+              >
+                <DraftInput
+                  value={eff("adapterConfig", "skillTags", formatArgList(config.skillTags))}
+                  onCommit={(v) =>
+                    mark("adapterConfig", "skillTags", v ? parseCommaArgs(v) : undefined)
+                  }
+                  immediate
+                  className={inputClass}
+                  placeholder="e.g. core, marketing"
+                />
+              </Field>
+
               <Field label="Environment variables" hint={help.envVars}>
                 <EnvVarEditor
                   value={

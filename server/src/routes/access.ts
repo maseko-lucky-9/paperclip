@@ -163,27 +163,35 @@ interface AvailableSkill {
   isPaperclipManaged: boolean;
 }
 
-/** Discover all available Claude Code skills from ~/.claude/skills/. */
+/** Discover all available Claude Code skills from the Paperclip skills dir and ~/.claude/skills/. */
 function listAvailableSkills(): AvailableSkill[] {
   const homeDir = process.env.HOME || process.env.USERPROFILE || "";
   const claudeSkillsDir = path.join(homeDir, ".claude", "skills");
   const paperclipSkillsDir = resolvePaperclipSkillsDir();
 
-  // Build set of Paperclip-managed skill names
-  const paperclipSkillNames = new Set<string>();
+  // Use a Map for deduplication; Paperclip-managed skills are seeded first.
+  const skills = new Map<string, AvailableSkill>();
+
+  // 1. Seed from Paperclip-managed skills (baked into image / repo).
   if (paperclipSkillsDir) {
     try {
       for (const entry of fs.readdirSync(paperclipSkillsDir, { withFileTypes: true })) {
-        if (entry.isDirectory()) paperclipSkillNames.add(entry.name);
+        if (!entry.isDirectory()) continue;
+        if (entry.name.startsWith(".")) continue;
+        const skillMdPath = path.join(paperclipSkillsDir, entry.name, "SKILL.md");
+        let description = "";
+        try {
+          const md = fs.readFileSync(skillMdPath, "utf8");
+          description = parseSkillFrontmatter(md).description;
+        } catch { /* no SKILL.md */ }
+        skills.set(entry.name, { name: entry.name, description, isPaperclipManaged: true });
       }
     } catch { /* skip */ }
   }
 
-  const skills: AvailableSkill[] = [];
-
+  // 2. Overlay user-local skills from ~/.claude/skills/ (preserves isPaperclipManaged flag).
   try {
-    const entries = fs.readdirSync(claudeSkillsDir, { withFileTypes: true });
-    for (const entry of entries) {
+    for (const entry of fs.readdirSync(claudeSkillsDir, { withFileTypes: true })) {
       if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
       if (entry.name.startsWith(".")) continue;
       const skillMdPath = path.join(claudeSkillsDir, entry.name, "SKILL.md");
@@ -192,16 +200,15 @@ function listAvailableSkills(): AvailableSkill[] {
         const md = fs.readFileSync(skillMdPath, "utf8");
         description = parseSkillFrontmatter(md).description;
       } catch { /* no SKILL.md or unreadable */ }
-      skills.push({
+      skills.set(entry.name, {
         name: entry.name,
         description,
-        isPaperclipManaged: paperclipSkillNames.has(entry.name),
+        isPaperclipManaged: skills.get(entry.name)?.isPaperclipManaged ?? false,
       });
     }
   } catch { /* ~/.claude/skills/ doesn't exist */ }
 
-  skills.sort((a, b) => a.name.localeCompare(b.name));
-  return skills;
+  return [...skills.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function toJoinRequestResponse(row: typeof joinRequests.$inferSelect) {

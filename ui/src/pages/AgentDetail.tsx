@@ -1432,11 +1432,17 @@ function SkillsTab({ agent }: { agent: Agent }) {
     typeof agent.adapterConfig?.instructionsFilePath === "string" && agent.adapterConfig.instructionsFilePath.trim().length > 0
       ? agent.adapterConfig.instructionsFilePath
       : null;
+  const allowTags: string[] = Array.isArray(agent.adapterConfig?.skillTags)
+    ? (agent.adapterConfig.skillTags as string[])
+    : [];
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.skills.available,
     queryFn: () => agentsApi.availableSkills(),
   });
-  const skills = data?.skills ?? [];
+  const allSkills = data?.skills ?? [];
+  const skills = allowTags.length === 0
+    ? allSkills
+    : allSkills.filter((s) => s.tags.length === 0 || s.tags.some((t) => allowTags.includes(t)));
 
   return (
     <div className="space-y-4">
@@ -1444,7 +1450,9 @@ function SkillsTab({ agent }: { agent: Agent }) {
         <h3 className="text-sm font-medium">Skills</h3>
         <p className="text-sm text-muted-foreground">
           Skills are reusable instruction bundles the agent can invoke from its local tool environment.
-          This view shows the current instructions file and the skills currently visible to the local agent runtime.
+          {allowTags.length > 0
+            ? ` Showing skills matching tag${allowTags.length > 1 ? "s" : ""}: ${allowTags.join(", ")}.`
+            : " Showing all available skills."}
         </p>
         <p className="text-xs text-muted-foreground">
           Agent: <span className="font-mono">{agent.name}</span>

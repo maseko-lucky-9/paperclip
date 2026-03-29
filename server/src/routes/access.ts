@@ -137,29 +137,33 @@ function resolvePaperclipSkillsDir(): string | null {
 }
 
 /** Parse YAML frontmatter from a SKILL.md file to extract the description. */
-function parseSkillFrontmatter(markdown: string): { description: string } {
+function parseSkillFrontmatter(markdown: string): { description: string; tags: string[] } {
   const match = markdown.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return { description: "" };
+  if (!match) return { description: "", tags: [] };
   const yaml = match[1];
-  // Extract description — handles both single-line and multi-line YAML values
+
   const descMatch = yaml.match(
     /^description:\s*(?:>\s*\n((?:\s{2,}[^\n]*\n?)+)|[|]\s*\n((?:\s{2,}[^\n]*\n?)+)|["']?(.*?)["']?\s*$)/m
   );
-  if (!descMatch) return { description: "" };
-  const raw = descMatch[1] ?? descMatch[2] ?? descMatch[3] ?? "";
-  return {
-    description: raw
-      .split("\n")
-      .map((l: string) => l.trim())
-      .filter(Boolean)
-      .join(" ")
-      .trim(),
-  };
+  const raw = descMatch ? (descMatch[1] ?? descMatch[2] ?? descMatch[3] ?? "") : "";
+  const description = raw.split("\n").map((l: string) => l.trim()).filter(Boolean).join(" ").trim();
+
+  const tagsInline = yaml.match(/^tags:\s*\[([^\]]*)\]/m);
+  const tagsList = yaml.match(/^tags:\s*\r?\n((?:\s+-\s+.+(?:\r?\n|$))*)/m);
+  let tags: string[] = [];
+  if (tagsInline) {
+    tags = tagsInline[1].split(",").map((t) => t.trim().replace(/^['"]|['"]$/g, "")).filter(Boolean);
+  } else if (tagsList) {
+    tags = (tagsList[1].match(/-\s+(.+)/g) ?? []).map((m) => m.replace(/^-\s+/, "").trim().replace(/^['"]|['"]$/g, ""));
+  }
+
+  return { description, tags };
 }
 
 interface AvailableSkill {
   name: string;
   description: string;
+  tags: string[];
   isPaperclipManaged: boolean;
 }
 
@@ -180,11 +184,12 @@ function listAvailableSkills(): AvailableSkill[] {
         if (entry.name.startsWith(".")) continue;
         const skillMdPath = path.join(paperclipSkillsDir, entry.name, "SKILL.md");
         let description = "";
+        let tags: string[] = [];
         try {
           const md = fs.readFileSync(skillMdPath, "utf8");
-          description = parseSkillFrontmatter(md).description;
+          ({ description, tags } = parseSkillFrontmatter(md));
         } catch { /* no SKILL.md */ }
-        skills.set(entry.name, { name: entry.name, description, isPaperclipManaged: true });
+        skills.set(entry.name, { name: entry.name, description, tags, isPaperclipManaged: true });
       }
     } catch { /* skip */ }
   }
@@ -196,13 +201,15 @@ function listAvailableSkills(): AvailableSkill[] {
       if (entry.name.startsWith(".")) continue;
       const skillMdPath = path.join(claudeSkillsDir, entry.name, "SKILL.md");
       let description = "";
+      let tags: string[] = [];
       try {
         const md = fs.readFileSync(skillMdPath, "utf8");
-        description = parseSkillFrontmatter(md).description;
+        ({ description, tags } = parseSkillFrontmatter(md));
       } catch { /* no SKILL.md or unreadable */ }
       skills.set(entry.name, {
         name: entry.name,
         description,
+        tags,
         isPaperclipManaged: skills.get(entry.name)?.isPaperclipManaged ?? false,
       });
     }

@@ -151,5 +151,6 @@ export const agentsApi = {
 export interface AvailableSkill {
   name: string;
   description: string;
+  tags: string[];
   isPaperclipManaged: boolean;
 }
